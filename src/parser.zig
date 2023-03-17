@@ -1,6 +1,4 @@
 const std = @import("std");
-const expect = std.testing.expect;
-// const testing = std.testing;
 
 pub const Error = error{ParseError};
 
@@ -9,6 +7,16 @@ pub fn Result(comptime T: type) type {
         value: T,
         rest: []const u8 = "",
     };
+}
+
+fn expect(comptime T: type, expected: Error!Result(T), actual: Error!Result(T)) !void {
+    const r_expected = expected catch |err| {
+        try std.testing.expectError(err, actual);
+        return;
+    };
+    const r_actual = try actual;
+    try std.testing.expectEqualDeep(r_expected.value, r_actual.value);
+    try std.testing.expectEqualStrings(r_expected.rest, r_actual.rest);
 }
 
 pub fn Parser(comptime T: type) type {
@@ -26,8 +34,8 @@ fn char(comptime c: u8) Parser(u8) {
 }
 
 test "char" {
-    const result = try char('a')("a");
-    try expect(result.value == 'a');
+    try expect(u8, Error.ParseError, char('a')(""));
+    try expect(u8, .{ .value = 'a', .rest = "" }, char('a')("a"));
 }
 
 pub fn main() void {}
