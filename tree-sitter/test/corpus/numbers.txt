@@ -2,10 +2,11 @@
 integers
 ========
 
-123
+123 456
 
 ---
 
 (source_file
+  (number)
   (number))
 

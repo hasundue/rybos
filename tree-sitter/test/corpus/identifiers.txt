@@ -19,3 +19,25 @@ ABC
 
 (source_file
   (identifier))
+
+===========
+snake case
+===========
+
+abc_def
+
+---
+
+(source_file
+  (identifier))
+
+===========
+camel case
+===========
+
+AbcDef
+
+---
+
+(source_file
+  (identifier))

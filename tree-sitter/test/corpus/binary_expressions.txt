@@ -1,0 +1,82 @@
+=========
+addition
+=========
+
+1 + 2
+
+---
+
+(source_file
+  (number)
+  (binary_expression)
+  (number))
+
+=========
+negation
+=========
+
+1 - 2
+
+---
+
+(source_file
+  (number)
+  (binary_expression)
+  (number))
+
+================
+multiplication
+================
+
+1 * 2
+
+---
+
+(source_file
+  (number)
+  (binary_expression)
+  (number))
+
+=========
+division
+=========
+
+1 / 2
+
+---
+
+(source_file
+  (number)
+  (binary_expression)
+  (number))
+
+=======================
+sequence of additions
+=======================
+
+1 + 2 + 3
+
+---
+
+(source_file
+  (number)
+  (binary_expression)
+  (number)
+  (binary_expression)
+  (number))
+
+
+==========================================
+sequence of addition and multiplication
+==========================================
+
+1 + 2 * 3
+
+---
+
+(source_file
+  (number)
+  (binary_expression)
+  (number)
+  (binary_expression)
+  (number))
