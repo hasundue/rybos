@@ -1,0 +1,21 @@
+===========
+lower case
+===========
+
+abc
+
+---
+
+(source_file
+  (identifier))
+
+===========
+upper case
+===========
+
+ABC
+
+---
+
+(source_file
+  (identifier))

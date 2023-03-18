@@ -23,7 +23,7 @@ pub fn Parser(comptime T: type) type {
     return fn (input: []const u8) Error!Result(T);
 }
 
-fn char(comptime c: u8) Parser(u8) {
+pub fn char(comptime c: u8) Parser(u8) {
     return struct {
         fn parse(input: []const u8) Error!Result(u8) {
             if (input.len == 0 or c != input[0])
@@ -36,6 +36,8 @@ fn char(comptime c: u8) Parser(u8) {
 test "char" {
     try expect(u8, Error.ParseError, char('a')(""));
     try expect(u8, .{ .value = 'a', .rest = "" }, char('a')("a"));
+    try expect(u8, Error.ParseError, char('a')("b"));
+    try expect(u8, .{ .value = 'a', .rest = "b" }, char('a')("ab"));
 }
 
-pub fn main() void {}
+pub fn string(comptime str: []const u8) Parser(

@@ -1,0 +1,18 @@
+{
+  "name": "tree-sitter-rybos",
+  "version": "0.0.1",
+  "description": "Tree-sitter for Rybos language",
+  "main": "bindings/node",
+  "scripts": {
+    "build": "./node_modules/.bin/tree-sitter generate",
+    "test": "npm run build && ./node_modules/.bin/tree-sitter test"
+  },
+  "author": "Shun Ueda <hasundue@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "nan": "^2.17.0"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.20.7"
+  }
+}
