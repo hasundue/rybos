@@ -1,8 +1,0 @@
-{
-  "compilerOptions": {
-    "allowUnusedLables": true,
-    "types": [
-      "./node_modules/tree-sitter-cli/dsl.d.ts"
-    ]
-  }
-}
