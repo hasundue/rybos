@@ -17,9 +17,9 @@ module.exports = grammar({
       $.float,
     ),
 
-    integer: $ => /[1-9]\d*/,
+    integer: $ => /[0-9]+/,
 
-    float: $ => /\d*\.?\d+|\.?\d+/,
+    float: $ => /[0-9]+\.[0-9]+/,
 
     binary_expression: $ => choice(
       $._binary_operator_prior,
