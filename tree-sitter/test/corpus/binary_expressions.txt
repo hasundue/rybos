@@ -7,9 +7,9 @@ addition
 ---
 
 (source_file
-  (number)
+  (integer)
   (binary_expression)
-  (number))
+  (integer))
 
 =========
 negation
@@ -20,9 +20,9 @@ negation
 ---
 
 (source_file
-  (number)
+  (integer)
   (binary_expression)
-  (number))
+  (integer))
 
 ================
 multiplication
@@ -33,9 +33,9 @@ multiplication
 ---
 
 (source_file
-  (number)
+  (integer)
   (binary_expression)
-  (number))
+  (integer))
 
 =========
 division
@@ -46,9 +46,9 @@ division
 ---
 
 (source_file
-  (number)
+  (integer)
   (binary_expression)
-  (number))
+  (integer))
 
 =======================
 sequence of additions
@@ -59,11 +59,11 @@ sequence of additions
 ---
 
 (source_file
-  (number)
+  (integer)
   (binary_expression)
-  (number)
+  (integer)
   (binary_expression)
-  (number))
+  (integer))
 
 
 ==========================================
@@ -75,8 +75,8 @@ sequence of addition and multiplication
 ---
 
 (source_file
-  (number)
+  (integer)
   (binary_expression)
-  (number)
+  (integer)
   (binary_expression)
-  (number))
+  (integer))

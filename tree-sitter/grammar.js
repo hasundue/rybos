@@ -6,13 +6,20 @@ module.exports = grammar({
 
     _expression: $ => choice(
       $.identifier,
-      $.number,
+      $._number,
       $.binary_expression,
     ),
 
     identifier: $ => /[a-zA-Z_]+/,
 
-    number: $ => /\d+/,
+    _number: $ => choice(
+      $.integer,
+      $.float,
+    ),
+
+    integer: $ => /[1-9]\d*/,
+
+    float: $ => /\d*\.?\d+|\.?\d+/,
 
     binary_expression: $ => choice(
       $._binary_operator_prior,

@@ -1,5 +1,5 @@
 ========
-integers
+integer
 ========
 
 123 456
@@ -7,6 +7,18 @@ integers
 ---
 
 (source_file
-  (number)
-  (number))
+  (integer)
+  (integer))
+
+======
+float
+======
+
+1.23 .456
+
+---
+
+(source_file
+  (float)
+  (float))
 
