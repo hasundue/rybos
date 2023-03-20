@@ -1,3 +1,4 @@
+tree-sitter/
 zig-out/
 zig-cache/
 *.wasm
