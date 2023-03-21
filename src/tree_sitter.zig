@@ -5,19 +5,27 @@ const c = @cImport({
     @cInclude("tree_sitter/api.h");
 });
 
+const ParserError = error{
+    ParserNotCreated,
+    LanguageNotAssigned,
+};
+
 extern "c" fn tree_sitter_rybos() *c.TSLanguage;
 
 pub const Parser = struct {
-    c: ?*c.TSParser,
+    c: *c.TSParser,
 
-    pub fn init() Parser {
+    pub fn init() ParserError!Parser {
         const parser = Parser{
-            .c = c.ts_parser_new(),
+            .c = c.ts_parser_new() orelse return ParserError.ParserNotCreated,
         };
-        _ = c.ts_parser_set_language(
+        const success = c.ts_parser_set_language(
             parser.c,
             tree_sitter_rybos(),
         );
+        if (!success) {
+            return ParserError.LanguageNotAssigned;
+        }
         return parser;
     }
 };
