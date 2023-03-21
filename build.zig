@@ -1,46 +1,44 @@
 const std = @import("std");
 
-// Although this function looks imperative, note that its job is to
-// declaratively construct a build graph that will be executed by an external
-// runner.
 pub fn build(b: *std.Build) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{
-        .default_target = .{ .arch_os_abi = .wasm32_freestanding },
+        .default_target = .{ .cpu_arch = .wasm32, .os_tag = .wasi, .abi = .musl },
     });
 
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
     const lib = b.addStaticLibrary(.{
         .name = "rybos",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/tree_sitter.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    // This declares intent for the library to be installed into the standard
-    // location when the user invokes the "install" step (the default step when
-    // running `zig build`).
+    // tree-sitter
+    lib.addIncludePath("tree-sitter/lib/include");
+    lib.addCSourceFile("tree-sitter/lib/src/lib.c", &[_][]const u8{});
+
+    // tree-sitter-rybos
+    lib.addIncludePath("tree-sitter-rybos/src");
+    lib.addCSourceFile("tree-sitter-rybos/src/parser.c", &[_][]const u8{});
+
+    // dependencies
+    lib.addIncludePath("/usr/include");
+    lib.linkLibC();
+    lib.linkSystemLibrary("icuuc");
+
     lib.install();
 
-    // Creates a step for unit testing.
-    const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+    const tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/tree_sitter.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    // This creates a build step. It will be visible in the `zig build --help` menu,
-    // and can be selected like this: `zig build test`
-    // This will evaluate the `test` step rather than the default, which is "install".
+    tests.addIncludePath("tree-sitter/lib/include");
+    tests.addIncludePath("tree-sitter-rybos/src");
+    tests.linkLibC();
+
     const test_step = b.step("test", "Run library tests");
-    test_step.dependOn(&main_tests.step);
+    test_step.dependOn(&tests.step);
 }
