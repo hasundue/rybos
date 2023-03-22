@@ -29,10 +29,6 @@ pub fn rootOf(tree: Tree) Node {
 const Node = struct {
     c: c.TSNode,
 
-    pub fn countChild(self: Node) u32 {
-        return @intCast(u32, c.ts_node_child_count(self.c));
-    }
-
     pub fn child(self: Node, id: u8) Node {
         return .{
             .c = c.ts_node_child(self.c, id),
@@ -45,6 +41,14 @@ const Node = struct {
         };
     }
 };
+
+pub fn childCount(node: Node) u32 {
+    return @intCast(u32, c.ts_node_child_count(node.c));
+}
+
+pub fn namedChildCount(node: Node) u32 {
+    return @intCast(u32, c.ts_node_named_child_count(node.c));
+}
 
 fn strlen(ptr: [*c]const u8) usize {
     var len: usize = 0;
@@ -107,7 +111,7 @@ test "Parser" {
     try testing.expect(mem.eql(u8, "source_file", typeOf(root)));
 
     // Check the child nodes
-    try testing.expect(root.countChild() == 3);
+    try testing.expect(childCount(root) == 3);
     const float_left = root.namedChild(0);
     const add = root.namedChild(1);
     const float_right = root.namedChild(2);
