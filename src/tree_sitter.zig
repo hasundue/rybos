@@ -14,13 +14,23 @@ const ParserError = error{
 
 const Tree = struct {
     c: *c.TSTree,
+
+    pub fn root(self: Tree) Node {
+        return .{
+            .c = c.ts_tree_root_node(self),
+        };
+    }
+};
+
+const Node = struct {
+    c: *c.TSNode,
 };
 
 pub const Parser = struct {
     c: *c.TSParser,
 
     pub fn init() ParserError!Parser {
-        const parser = Parser{
+        const parser = .{
             .c = c.ts_parser_new() orelse return ParserError.ParserNotCreated,
         };
         const success = c.ts_parser_set_language(
@@ -34,7 +44,7 @@ pub const Parser = struct {
     }
 
     pub fn parse(self: Parser, str: []const u8) Tree {
-        return Tree{
+        return .{
             .c = c.ts_parser_parse_string(self.c, null, str, str.len),
         };
     }
@@ -47,4 +57,7 @@ test "Parser" {
     const str = "0.12 + 3.45";
     const tree = parser.parse(str);
     try testing.expectEqual(Tree, @TypeOf(tree));
+
+    const root = tree.root();
+    try testing.expectEqual(Node, @TypeOf(root));
 }
