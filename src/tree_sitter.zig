@@ -18,10 +18,30 @@ const ParserError = error{
 
 const Tree = struct {
     c: *c.TSTree,
+};
 
-    pub fn getRoot(self: Tree) Node {
+pub fn rootOf(tree: Tree) Node {
+    return .{
+        .c = c.ts_tree_root_node(tree.c),
+    };
+}
+
+const Node = struct {
+    c: c.TSNode,
+
+    pub fn countChild(self: Node) u32 {
+        return @intCast(u32, c.ts_node_child_count(self.c));
+    }
+
+    pub fn child(self: Node, id: u8) Node {
         return .{
-            .c = c.ts_tree_root_node(self.c),
+            .c = c.ts_node_child(self.c, id),
+        };
+    }
+
+    pub fn namedChild(self: Node, id: u8) Node {
+        return .{
+            .c = c.ts_node_named_child(self.c, id),
         };
     }
 };
@@ -32,40 +52,16 @@ fn strlen(ptr: [*c]const u8) usize {
     return len;
 }
 
-const Node = struct {
-    c: c.TSNode,
-
-    pub fn getNamedChild(self: Node, id: u8) Node {
-        return .{
-            .c = c.ts_node_named_child(self.c, id),
-        };
-    }
-
-    pub fn getType(self: Node) []const u8 {
-        const ptr = c.ts_node_type(self.c);
-        const len = strlen(ptr);
-        return ptr[0..len];
-    }
-};
+pub fn typeOf(node: Node) []const u8 {
+    const ptr = c.ts_node_type(node.c);
+    const len = strlen(ptr);
+    return ptr[0..len];
+}
 
 pub const Parser = struct {
     c: *c.TSParser,
 
-    pub fn init() !Parser {
-        const parser = .{
-            .c = c.ts_parser_new() orelse return ParserError.ParserNotCreated,
-        };
-        const success = c.ts_parser_set_language(
-            parser.c,
-            tree_sitter_rybos(),
-        );
-        if (!success) {
-            return ParserError.LanguageNotAssigned;
-        }
-        return parser;
-    }
-
-    pub fn exec(self: Parser, str: []const u8) !Tree {
+    pub fn parse(self: Parser, str: []const u8) !Tree {
         return .{
             .c = c.ts_parser_parse_string(
                 self.c,
@@ -77,23 +73,45 @@ pub const Parser = struct {
     }
 };
 
+pub fn createParser() !Parser {
+    const parser = .{
+        .c = c.ts_parser_new() orelse {
+            return ParserError.ParserNotCreated;
+        },
+    };
+    const success = c.ts_parser_set_language(
+        parser.c,
+        tree_sitter_rybos(),
+    );
+    if (!success) {
+        return ParserError.LanguageNotAssigned;
+    }
+    return parser;
+}
+
 test "Parser" {
-    const parser = try Parser.init();
+    // Create a parser
+    const parser = try createParser();
     try testing.expectEqual(Parser, @TypeOf(parser));
 
+    // Source code for testing
     const str = "0.12 + 3.45";
-    const tree = try parser.exec(str);
+
+    // Parse the source code and create a tree
+    const tree = try parser.parse(str);
     try testing.expectEqual(Tree, @TypeOf(tree));
 
-    const root = tree.getRoot();
+    // Check the type of the root node
+    const root = rootOf(tree);
     try testing.expectEqual(Node, @TypeOf(root));
-    try testing.expect(mem.eql(u8, "source_file", root.getType()));
+    try testing.expect(mem.eql(u8, "source_file", typeOf(root)));
 
-    const float_left = root.getNamedChild(0);
-    const add = root.getNamedChild(1);
-    const float_right = root.getNamedChild(2);
-
-    try testing.expect(mem.eql(u8, "float", float_left.getType()));
-    try testing.expect(mem.eql(u8, "binary_expression", add.getType()));
-    try testing.expect(mem.eql(u8, "float", float_right.getType()));
+    // Check the child nodes
+    try testing.expect(root.countChild() == 3);
+    const float_left = root.namedChild(0);
+    const add = root.namedChild(1);
+    const float_right = root.namedChild(2);
+    try testing.expect(mem.eql(u8, "float", typeOf(float_left)));
+    try testing.expect(mem.eql(u8, "binary_expression", typeOf(add)));
+    try testing.expect(mem.eql(u8, "float", typeOf(float_right)));
 }
