@@ -36,7 +36,9 @@ const Node = struct {
     c: c.TSNode,
 
     pub fn getNamedChild(self: Node, id: u8) Node {
-        return &c.ts_node_named_child(self.c, id);
+        return .{
+            .c = c.ts_node_named_child(self.c, id),
+        };
     }
 
     pub fn getType(self: Node) []const u8 {
@@ -86,4 +88,12 @@ test "Parser" {
     const root = tree.getRoot();
     try testing.expectEqual(Node, @TypeOf(root));
     try testing.expect(mem.eql(u8, "source_file", root.getType()));
+
+    const float_left = root.getNamedChild(0);
+    const add = root.getNamedChild(1);
+    const float_right = root.getNamedChild(2);
+
+    try testing.expect(mem.eql(u8, "float", float_left.getType()));
+    try testing.expect(mem.eql(u8, "binary_expression", add.getType()));
+    try testing.expect(mem.eql(u8, "float", float_right.getType()));
 }
