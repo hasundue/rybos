@@ -18,7 +18,6 @@ const ParserError = error{
 
 const Tree = struct {
     c: *c.TSTree,
-    parser: *const Parser,
 
     pub fn delete(self: Tree) void {
         c.ts_tree_delete(self.c);
@@ -28,30 +27,40 @@ const Tree = struct {
 pub fn rootOf(tree: Tree) Node {
     return .{
         .c = c.ts_tree_root_node(tree.c),
-        .tree = &tree,
     };
 }
 
 const Node = struct {
     c: c.TSNode,
-    tree: *const Tree,
 
-    pub fn child(self: Node, id: u8) Node {
+    pub fn getChild(self: Node, id: u8) Node {
         return .{
             .c = c.ts_node_child(self.c, id),
-            .tree = self.tree,
         };
     }
 
-    pub fn namedChild(self: Node, id: u8) Node {
+    pub fn countChild(self: Node) u32 {
+        return @intCast(u32, c.ts_node_child_count(self.c));
+    }
+
+    pub fn getNamedChild(self: Node, id: u8) Node {
         return .{
             .c = c.ts_node_named_child(self.c, id),
-            .tree = self.tree,
         };
+    }
+
+    pub fn countNamedChild(self: Node) u32 {
+        return @intCast(u32, c.ts_node_named_child_count(self.c));
+    }
+
+    pub fn getType(self: Node) []const u8 {
+        const ptr = c.ts_node_type(self.c);
+        const len = mem.len(ptr);
+        return ptr[0..len];
     }
 
     pub fn is(self: Node, expected: []const u8) bool {
-        const actual = typeOf(self);
+        const actual = getType(self);
         return mem.eql(u8, expected, actual);
     }
 
@@ -61,20 +70,6 @@ const Node = struct {
         return ptr[0..len];
     }
 };
-
-pub fn childCount(node: Node) u32 {
-    return @intCast(u32, c.ts_node_child_count(node.c));
-}
-
-pub fn namedChildCount(node: Node) u32 {
-    return @intCast(u32, c.ts_node_named_child_count(node.c));
-}
-
-pub fn typeOf(node: Node) []const u8 {
-    const ptr = c.ts_node_type(node.c);
-    const len = mem.len(ptr);
-    return ptr[0..len];
-}
 
 pub const Parser = struct {
     c: *c.TSParser,
@@ -103,11 +98,10 @@ pub const Parser = struct {
                 &str[0],
                 @intCast(u32, str.len),
             ) orelse return ParserError.ParseFailed,
-            .parser = &self,
         };
     }
 
-    pub fn deinit(self: Parser) void {
+    pub fn delete(self: Parser) void {
         c.ts_parser_delete(self.c);
     }
 };
@@ -117,7 +111,7 @@ test "Parser" {
 
     // Create a parser
     const parser = try Parser.init();
-    defer parser.deinit();
+    defer parser.delete();
     try testing.expectEqual(Parser, @TypeOf(parser));
 
     // Source code for testing
@@ -131,7 +125,7 @@ test "Parser" {
     // Check the type of the root node
     const root = rootOf(tree);
     try testing.expectEqual(Node, @TypeOf(root));
-    try testing.expect(mem.eql(u8, "source_file", typeOf(root)));
+    try testing.expect(mem.eql(u8, "source_file", root.getType()));
 
     // Check the tree contents
     const str = root.toString();
@@ -140,14 +134,14 @@ test "Parser" {
         mem.eql(u8, "(source_file (binary_expression (float) (float)))", str),
     );
 
-    // Check the child nodes
-    try testing.expect(childCount(root) == 1);
-    const expr = root.child(0);
+    // Check the getChild nodes
+    try testing.expect(root.countChild() == 1);
+    const expr = root.getChild(0);
     try testing.expect(expr.is("binary_expression"));
 
-    try testing.expect(namedChildCount(expr) == 2);
-    const left = expr.namedChild(0);
-    const right = expr.namedChild(1);
+    try testing.expect(expr.countNamedChild() == 2);
+    const left = expr.getNamedChild(0);
+    const right = expr.getNamedChild(1);
     try testing.expect(left.is("float"));
     try testing.expect(right.is("float"));
 }
