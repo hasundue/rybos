@@ -6,7 +6,7 @@ module.exports = grammar({
 
     _expression: $ => choice(
       $.identifier,
-      $.binary_expression,
+      $._binary_expression,
       $._number,
     ),
 
@@ -18,30 +18,18 @@ module.exports = grammar({
     ),
 
     integer: $ => /[0-9]+/,
-
     float: $ => /[0-9]+\.[0-9]+/,
 
-    binary_expression: $ => choice(
-      $._binary_expression_prior,
-      $._binary_expression_post,
+    _binary_expression: $ => choice(
+      $.addition,
+      $.substraction,
+      $.multiplication,
+      $.division,
     ),
 
-    _binary_operator_prior: $ => choice(
-      '*',
-      '/',
-    ),
-
-    _binary_expression_prior: $ => choice(
-      prec.left(2, seq($._expression, $._binary_operator_prior, $._expression)),
-    ),
-
-    _binary_operator_post: $ => choice(
-      '+',
-      '-',
-    ),
-
-    _binary_expression_post: $ => choice(
-      prec.left(1, seq($._expression, $._binary_operator_post, $._expression)),
-    ),
+    addition: $ => prec.left(1, seq($._expression, '+', $._expression)),
+    substraction: $ => prec.left(1, seq($._expression, '-', $._expression)),
+    multiplication: $ => prec.left(2, seq($._expression, '*', $._expression)),
+    division: $ => prec.left(2, seq($._expression, '/', $._expression)),
   },
 });

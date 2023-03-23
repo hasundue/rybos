@@ -63,6 +63,9 @@ const Node = struct {
         return mem.eql(u8, expected, actual);
     }
 
+    /// Serialize a node to a string in S-expression.
+    /// The returned string must be freed by the caller
+    /// with std.heap.c_allocator.
     pub fn toString(self: Node) []const u8 {
         const ptr = c.ts_node_string(self.c);
         const len = mem.len(ptr);
@@ -85,6 +88,8 @@ pub const Parser = struct {
         };
     }
 
+    /// Parse a string and get a syntax tree.
+    /// The returned tree must be deleted by the caller.
     pub fn parse(self: Parser, str: []const u8) !Tree {
         return .{
             .c = c.ts_parser_parse_string(
@@ -133,6 +138,7 @@ test "Parser" {
     try testing.expect(root.countChild() == 1);
     const expr = root.getChild(0);
     try testing.expect(expr.is("binary_expression"));
+
     try testing.expect(expr.countNamedChild() == 2);
     const left = expr.getNamedChild(0);
     const right = expr.getNamedChild(1);
