@@ -19,6 +19,10 @@ const ParserError = error{
 
 const Tree = struct {
     c: *c.TSTree,
+
+    pub fn delete(self: Tree) void {
+        c.ts_tree_delete(self.c);
+    }
 };
 
 pub fn rootOf(tree: Tree) Node {
@@ -70,6 +74,10 @@ pub const Parser = struct {
             ) orelse return ParserError.ParseFailed,
         };
     }
+
+    pub fn delete(self: Parser) void {
+        c.ts_parser_delete(self.c);
+    }
 };
 
 pub fn createParser() !Parser {
@@ -91,6 +99,7 @@ pub fn createParser() !Parser {
 test "Parser" {
     // Create a parser
     const parser = try createParser();
+    defer parser.delete();
     try testing.expectEqual(Parser, @TypeOf(parser));
 
     // Source code for testing
@@ -98,6 +107,7 @@ test "Parser" {
 
     // Parse the source code and create a tree
     const tree = try parser.parse(str);
+    defer tree.delete();
     try testing.expectEqual(Tree, @TypeOf(tree));
 
     // Check the type of the root node
