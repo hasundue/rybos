@@ -44,6 +44,11 @@ const Node = struct {
             .c = c.ts_node_named_child(self.c, id),
         };
     }
+
+    pub fn is(self: Node, expected: []const u8) bool {
+        const actual = typeOf(self);
+        return mem.eql(u8, expected, actual);
+    }
 };
 
 pub fn childCount(node: Node) u32 {
@@ -56,7 +61,7 @@ pub fn namedChildCount(node: Node) u32 {
 
 pub fn typeOf(node: Node) []const u8 {
     const ptr = c.ts_node_type(node.c);
-    const len = std.mem.len(ptr);
+    const len = mem.len(ptr);
     return ptr[0..len];
 }
 
@@ -119,7 +124,7 @@ test "Parser" {
     const float_left = root.namedChild(0);
     const add = root.namedChild(1);
     const float_right = root.namedChild(2);
-    try testing.expect(mem.eql(u8, "float", typeOf(float_left)));
-    try testing.expect(mem.eql(u8, "binary_expression", typeOf(add)));
-    try testing.expect(mem.eql(u8, "float", typeOf(float_right)));
+    try testing.expect(float_left.is("float"));
+    try testing.expect(add.is("binary_expression"));
+    try testing.expect(float_right.is("float"));
 }
