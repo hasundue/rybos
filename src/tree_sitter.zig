@@ -113,6 +113,8 @@ pub const Parser = struct {
 };
 
 test "Parser" {
+    const allocator = std.heap.c_allocator;
+
     // Create a parser
     const parser = try Parser.init();
     defer parser.deinit();
@@ -131,17 +133,21 @@ test "Parser" {
     try testing.expectEqual(Node, @TypeOf(root));
     try testing.expect(mem.eql(u8, "source_file", typeOf(root)));
 
+    // Check the tree contents
     const str = root.toString();
+    defer allocator.free(str);
     try testing.expect(
-        mem.eql(u8, "(source_file (float) (binary_expression) (float))", str),
+        mem.eql(u8, "(source_file (binary_expression (float) (float)))", str),
     );
 
     // Check the child nodes
-    try testing.expect(childCount(root) == 3);
-    const float_left = root.namedChild(0);
-    const add = root.namedChild(1);
-    const float_right = root.namedChild(2);
-    try testing.expect(float_left.is("float"));
-    try testing.expect(add.is("binary_expression"));
-    try testing.expect(float_right.is("float"));
+    try testing.expect(childCount(root) == 1);
+    const expr = root.child(0);
+    try testing.expect(expr.is("binary_expression"));
+
+    try testing.expect(namedChildCount(expr) == 2);
+    const left = expr.namedChild(0);
+    const right = expr.namedChild(1);
+    try testing.expect(left.is("float"));
+    try testing.expect(right.is("float"));
 }
