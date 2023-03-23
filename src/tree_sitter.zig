@@ -1,7 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
 const testing = std.testing;
-const print = std.debug.print;
 
 const c = @cImport({
     @cInclude("tree_sitter/api.h");
@@ -22,13 +21,13 @@ const Tree = struct {
     pub fn delete(self: Tree) void {
         c.ts_tree_delete(self.c);
     }
-};
 
-pub fn rootOf(tree: Tree) Node {
-    return .{
-        .c = c.ts_tree_root_node(tree.c),
-    };
-}
+    pub fn getRoot(self: Tree) Node {
+        return .{
+            .c = c.ts_tree_root_node(self.c),
+        };
+    }
+};
 
 const Node = struct {
     c: c.TSNode,
@@ -78,11 +77,7 @@ pub const Parser = struct {
         const c_parser_ptr = c.ts_parser_new() orelse {
             return ParserError.ParserNotCreated;
         };
-        const success = c.ts_parser_set_language(
-            c_parser_ptr,
-            tree_sitter_rybos(),
-        );
-        if (!success) {
+        if (!c.ts_parser_set_language(c_parser_ptr, tree_sitter_rybos())) {
             return ParserError.LanguageNotAssigned;
         }
         return .{
@@ -123,7 +118,7 @@ test "Parser" {
     try testing.expectEqual(Tree, @TypeOf(tree));
 
     // Check the type of the root node
-    const root = rootOf(tree);
+    const root = tree.getRoot();
     try testing.expectEqual(Node, @TypeOf(root));
     try testing.expect(mem.eql(u8, "source_file", root.getType()));
 
@@ -134,11 +129,10 @@ test "Parser" {
         mem.eql(u8, "(source_file (binary_expression (float) (float)))", str),
     );
 
-    // Check the getChild nodes
+    // Check child nodes
     try testing.expect(root.countChild() == 1);
     const expr = root.getChild(0);
     try testing.expect(expr.is("binary_expression"));
-
     try testing.expect(expr.countNamedChild() == 2);
     const left = expr.getNamedChild(0);
     const right = expr.getNamedChild(1);
