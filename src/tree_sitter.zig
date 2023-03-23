@@ -4,7 +4,6 @@ const testing = std.testing;
 const musl = std.musl;
 
 const c = @cImport({
-    @cInclude("string.h");
     @cInclude("tree_sitter/api.h");
 });
 
@@ -57,7 +56,7 @@ pub fn namedChildCount(node: Node) u32 {
 
 pub fn typeOf(node: Node) []const u8 {
     const ptr = c.ts_node_type(node.c);
-    const len = c.strlen(ptr);
+    const len = std.mem.len(ptr);
     return ptr[0..len];
 }
 
