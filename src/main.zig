@@ -1,7 +1,7 @@
-pub const tree_sitter = @import("tree_sitter.zig");
+const parser = @import("parser.zig");
 
 test {
-    _ = tree_sitter;
+    _ = parser;
 }
 
 pub fn main() void {}

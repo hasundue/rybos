@@ -1,3 +1,6 @@
 [submodule "lib/tree-sitter-json"]
 	path = lib/tree-sitter-json
 	url = https://github.com/tree-sitter/tree-sitter-json
+[submodule "lib/parser-toolkit"]
+	path = lib/parser-toolkit
+	url = git@github.com:MasterQ32/parser-toolkit.git
