@@ -25,7 +25,10 @@ fn ReturnType(comptime visitor: anytype) type {
     };
 }
 
-fn visit(visitor: anytype, comptime str: []const u8) ReturnType(visitor) {
+fn visit(
+    comptime visitor: anytype,
+    comptime str: []const u8,
+) ReturnType(visitor) {
     checkParamType(visitor);
     if (ReturnType(visitor) == std.builtin.Type.ErrorUnion) {
         return try visitor(str);
@@ -34,10 +37,14 @@ fn visit(visitor: anytype, comptime str: []const u8) ReturnType(visitor) {
     }
 }
 
+pub fn Combinator(comptime visitor: anytype) type {
+    return fn ([]const u8) Error!ReturnType(visitor);
+}
+
 pub fn literal(
     comptime visitor: anytype,
     comptime str: []const u8,
-) fn ([]const u8) Error!ReturnType(visitor) {
+) Combinator(visitor) {
     checkParamType(visitor);
     return struct {
         fn match(src: []const u8) Error!ReturnType(visitor) {
