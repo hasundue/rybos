@@ -16,9 +16,9 @@ const Node = struct {
 
     // child: []const *Self,
 
-    pub fn builder(comptime rule: []const u8) cmb.Visitor(Node) {
+    pub fn builder(comptime rule: []const u8) fn (cmb.Context) Node {
         return struct {
-            fn visitor(ctx: cmb.Context) cmb.Error!Node {
+            fn visitor(ctx: cmb.Context) Node {
                 return .{
                     .rule = rule,
                     .str = ctx.str,
@@ -30,7 +30,7 @@ const Node = struct {
 };
 
 test "init" {
-    const parser = cmb.eos(Node, Node.builder("EOS"));
+    const parser = cmb.eos(Node.builder("EOS"));
     var src = utl.streamSource("");
 
     const node = try parser(testing.allocator, &src);

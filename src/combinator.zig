@@ -1,19 +1,20 @@
 const std = @import("std");
-const util = @import("util.zig");
 
 const Allocator = std.mem.Allocator;
-
-const File = std.fs.File;
 const StreamSource = std.io.StreamSource;
 
 const testing = std.testing;
 const expect = testing.expect;
 const expectError = testing.expectError;
 
+const util = @import("util.zig");
+const ReturnType = util.ReturnType;
+
+const File = std.fs.File;
 pub const Error = error{ParseFailed} || Allocator.Error || File.ReadError || File.SeekError;
 
-pub fn Combinator(comptime ReturnType: type) type {
-    return fn (Allocator, *StreamSource) Error!ReturnType;
+pub fn Combinator(comptime visitor: anytype) type {
+    return fn (Allocator, *StreamSource) Error!ReturnType(visitor);
 }
 
 pub const Context = struct {
@@ -30,16 +31,16 @@ pub const Context = struct {
     }
 };
 
-pub fn Visitor(comptime ReturnType: type) type {
-    return fn (Context) Error!ReturnType;
+pub fn Visitor(comptime T: type) type {
+    return fn (Context) Error!T;
 }
 
-fn noop(_: Context) !void {}
+fn noop(_: Context) void {}
 
 fn visit(
     comptime visitor: anytype,
     context: Context,
-) util.ReturnType(visitor) {
+) ReturnType(visitor) {
     const types = util.ParamTypes(visitor);
     if (types.len != 1 or types[0] != Context) {
         @compileError("visitor must take a single parameter of type Context");
@@ -52,12 +53,11 @@ fn visit(
 }
 
 pub fn literal(
-    comptime ReturnType: type,
-    comptime visitor: fn (Context) Error!ReturnType,
+    comptime visitor: anytype,
     comptime str: []const u8,
-) Combinator(ReturnType) {
+) Combinator(visitor) {
     return struct {
-        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType {
+        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
             const buf = try alc.alloc(u8, str.len);
             defer alc.free(buf);
             const start = try src.getPos();
@@ -73,21 +73,18 @@ pub fn literal(
 }
 
 test "literal" {
-    const cmb = literal(void, noop, "hello");
+    const parse = literal(noop, "hello");
 
     var src = util.streamSource("hello");
-    try cmb(testing.allocator, &src);
+    try parse(testing.allocator, &src);
 
     src = util.streamSource("");
-    try expectError(Error.ParseFailed, cmb(testing.allocator, &src));
+    try expectError(Error.ParseFailed, parse(testing.allocator, &src));
 }
 
-pub fn eos(
-    comptime ReturnType: type,
-    comptime visitor: fn (Context) Error!ReturnType,
-) Combinator(ReturnType) {
+pub fn eos(comptime visitor: anytype) Combinator(visitor) {
     return struct {
-        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType {
+        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
             const buf = try alc.alloc(u8, 1);
             defer alc.free(buf);
             const count = try src.read(buf);
@@ -102,7 +99,7 @@ pub fn eos(
 }
 
 test "eos" {
-    const cmb = eos(void, noop);
+    const cmb = eos(noop);
 
     var src = util.streamSource("");
     try cmb(testing.allocator, &src);
