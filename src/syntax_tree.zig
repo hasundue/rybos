@@ -1,10 +1,13 @@
 const std = @import("std");
 const cmb = @import("combinator.zig");
-const testing = std.testing;
 
+const Allocator = std.mem.Allocator;
+const Parser = cmb.Combinator;
 const Visitor = fn ([]const u8) SyntaxNode;
 
+const eos = cmb.eos();
 const @"const" = cmb.literal("const");
+
 const parser = @"const"; // TODO
 
 const Position = struct {
@@ -18,27 +21,29 @@ const SyntaxNode = struct {
     tree: *SyntaxTree,
 
     token: []const u8,
+    syntax: comptime_int,
     position: Position,
 
-    children: []const *Self,
+    child: []const *Self,
 };
 
 const SyntaxTree = struct {
     const Self = @This();
 
-    allocator: *std.mem.Allocator,
-    parser: cmb.Combinator,
+    allocator: *Allocator,
+    parser: Parser,
     root: *SyntaxNode,
 
-    pub fn init(a: *std.mem.Allocator, p: cmb.Combinator, s: []const u8) Self {
+    pub fn init(a: *Allocator, p: Parser, s: []const u8) Self {
         _ = s;
         _ = p;
         _ = a;
     }
 };
 
+const testing = std.testing;
+
 test "init" {
-    const alc = testing.allocator;
-    const st = SyntaxTree.init(alc, parser, "");
-    _ = st;
+    const tree = SyntaxTree.init(testing.allocator, parser, "");
+    try testing.expect(tree.root.token == "");
 }

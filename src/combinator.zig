@@ -1,54 +1,97 @@
 const std = @import("std");
+
+const mem = std.mem;
+const Allocator = std.mem.Allocator;
+
+const File = std.fs.File;
+const StreamSource = std.io.StreamSource;
+const fixedBufferStream = std.io.fixedBufferStream;
+
 const print = std.debug.print;
+const testing = std.testing;
 
-const Error = error{ ParseFailed, VisitorError };
+const Error = error{ParseFailed} || Allocator.Error || File.ReadError || File.SeekError;
 
-fn checkParamType(comptime visitor: anytype) void {
-    const params = switch (@typeInfo(@TypeOf(visitor))) {
-        .Pointer => |p| @typeInfo(p.child).Fn.params,
-        .Fn => |f| f.params,
-        else => unreachable,
-    };
-    if (params.len != 1) {
-        @compileError("visitor must accept exactly one parameter");
-    }
-    if (params[0].type.? != []const u8) {
-        @compileError("visitor must accept []const u8");
+fn ensureFn(comptime visitor: anytype) std.builtin.Type.Fn {
+    switch (@typeInfo(@TypeOf(visitor))) {
+        .Fn => |f| return f,
+        else => @compileError("visitor must be a function"),
     }
 }
 
+test "ensureFn" {
+    const f = struct {
+        fn f() void {}
+    }.f;
+    try testing.expect(@TypeOf(ensureFn(f)) == std.builtin.Type.Fn);
+}
+
 fn ReturnType(comptime visitor: anytype) type {
-    return switch (@typeInfo(@TypeOf(visitor))) {
-        .Pointer => |p| @typeInfo(p.child).Fn.return_type.?,
-        .Fn => |f| f.return_type.?,
-        else => unreachable,
-    };
+    return ensureFn(visitor).return_type.?;
+}
+
+test "ReturnType" {
+    const f = struct {
+        fn f() void {}
+    }.f;
+    try testing.expect(ReturnType(f) == void);
+}
+
+fn ParamTypes(comptime visitor: anytype) []const type {
+    const params = ensureFn(visitor).params;
+    var types: [params.len]type = undefined;
+
+    for (params, 0..) |param, i| {
+        types[i] = param.type.?;
+    }
+    const cast: []const type = &types;
+    return cast;
+}
+
+test "ParamType" {
+    const f = struct {
+        fn f(_: u8) void {}
+    }.f;
+    const types = ParamTypes(f);
+    try testing.expect(types.len == 1);
+    try testing.expect(types[0] == u8);
 }
 
 fn visit(
     comptime visitor: anytype,
-    comptime str: []const u8,
+    comptime context: anytype,
 ) ReturnType(visitor) {
-    checkParamType(visitor);
+    // validate the signature of the visitor
+    _ = ensureFn(visitor);
+
     if (ReturnType(visitor) == std.builtin.Type.ErrorUnion) {
-        return try visitor(str);
+        return try visitor(context);
     } else {
-        return visitor(str);
+        return visitor(context);
     }
 }
 
 pub fn Combinator(comptime visitor: anytype) type {
-    return fn ([]const u8) Error!ReturnType(visitor);
+    return fn (Allocator, *StreamSource) Error!ReturnType(visitor);
 }
 
 pub fn literal(
     comptime visitor: anytype,
     comptime str: []const u8,
 ) Combinator(visitor) {
-    checkParamType(visitor);
+    const types = ParamTypes(visitor);
+    if (types.len != 1 or types[0] != []const u8) {
+        @compileError("visitor must take a single parameter of type []const u8");
+    }
     return struct {
-        fn match(src: []const u8) Error!ReturnType(visitor) {
-            if (!std.mem.startsWith(u8, src, str)) {
+        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
+            const buf = try alc.alloc(u8, str.len);
+            defer alc.free(buf);
+
+            const count = try src.read(buf);
+
+            if (count < str.len or !mem.eql(u8, buf, str)) {
+                try src.seekBy(-@intCast(i64, count));
                 return Error.ParseFailed;
             }
             return visit(visitor, str);
@@ -56,10 +99,38 @@ pub fn literal(
     }.match;
 }
 
-fn debug(res: []const u8) void {
-    print("matched: {s}\n", .{res});
+fn debug(str: []const u8) void {
+    print("matched: {s}\n", .{str});
 }
 
 test "literal" {
-    try literal(debug, "hello")("hello");
+    var src = StreamSource{ .const_buffer = fixedBufferStream("hello") };
+    try literal(debug, "hello")(testing.allocator, &src);
 }
+
+// pub fn eos(comptime visitor: anytype) Combinator(visitor) {
+//     return struct {
+//         fn match(rest: []u8) Error!ReturnType(visitor) {
+//             if (rest.len != 0) {
+//                 return Error.ParseFailed;
+//             }
+//             return visit(visitor, rest);
+//         }
+//     }.match;
+// }
+
+// pub fn choice(
+//     comptime visitor: anytype,
+//     comptime cs: []Combinator,
+// ) Combinator(visitor) {
+//     return struct {
+//         fn match(rest: []u8) Error!ReturnType(visitor) {
+//             var res: [cs.len]ReturnType(visitor) = undefined;
+//             for (cs) |combinator| {
+//                 const res = try combinator(rest);
+//                 return res;
+//             }
+//             return Error.ParseFailed;
+//         }
+//     }.match;
+// }
