@@ -16,7 +16,7 @@ const Node = struct {
 
     // child: []const *Self,
 
-    pub fn builder(comptime rule: []const u8) fn (cmb.Context) Node {
+    pub fn builder(comptime rule: []const u8) cmb.Visitor(Node) {
         return struct {
             fn visitor(ctx: cmb.Context) Node {
                 return .{

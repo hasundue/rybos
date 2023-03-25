@@ -32,7 +32,7 @@ pub const Context = struct {
 };
 
 pub fn Visitor(comptime T: type) type {
-    return fn (Context) Error!T;
+    return fn (Context) T;
 }
 
 fn noop(_: Context) void {}
