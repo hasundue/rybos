@@ -123,11 +123,15 @@ pub fn eos(comptime visitor: anytype) Combinator(visitor) {
         @compileError("visitor must take a single parameter of type null");
     }
     return struct {
-        fn match(_: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
-            if (try src.getPos() == try src.getEndPos()) {
-                return visit(visitor, null);
+        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
+            const buf = try alc.alloc(u8, 1);
+            defer alc.free(buf);
+            const count = try src.read(buf);
+            if (count > 0) {
+                try src.seekBy(-@intCast(i64, count));
+                return Error.ParseFailed;
             }
-            return Error.ParseFailed;
+            return visit(visitor, null);
         }
     }.match;
 }
