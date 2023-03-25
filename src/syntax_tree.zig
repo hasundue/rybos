@@ -34,7 +34,7 @@ const SyntaxTree = struct {
     parser: Parser,
     root: *SyntaxNode,
 
-    pub fn init(a: *Allocator, p: Parser, s: []const u8) Self {
+    pub fn init(a: Allocator, p: Parser, s: []const u8) Self {
         _ = s;
         _ = p;
         _ = a;

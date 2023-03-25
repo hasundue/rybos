@@ -12,6 +12,12 @@ const testing = std.testing;
 
 const Error = error{ParseFailed} || Allocator.Error || File.ReadError || File.SeekError;
 
+fn noop(comptime T: type) fn (T) void {
+    return struct {
+        fn f(_: T) void {}
+    }.f;
+}
+
 fn ensureFn(comptime visitor: anytype) std.builtin.Type.Fn {
     switch (@typeInfo(@TypeOf(visitor))) {
         .Fn => |f| return f,
@@ -20,10 +26,7 @@ fn ensureFn(comptime visitor: anytype) std.builtin.Type.Fn {
 }
 
 test "ensureFn" {
-    const f = struct {
-        fn f() void {}
-    }.f;
-    try testing.expect(@TypeOf(ensureFn(f)) == std.builtin.Type.Fn);
+    try testing.expect(@TypeOf(ensureFn(noop(u8))) == std.builtin.Type.Fn);
 }
 
 fn ReturnType(comptime visitor: anytype) type {
@@ -31,10 +34,7 @@ fn ReturnType(comptime visitor: anytype) type {
 }
 
 test "ReturnType" {
-    const f = struct {
-        fn f() void {}
-    }.f;
-    try testing.expect(ReturnType(f) == void);
+    try testing.expect(ReturnType(noop(u8)) == void);
 }
 
 fn ParamTypes(comptime visitor: anytype) []const type {
@@ -49,10 +49,7 @@ fn ParamTypes(comptime visitor: anytype) []const type {
 }
 
 test "ParamType" {
-    const f = struct {
-        fn f(_: u8) void {}
-    }.f;
-    const types = ParamTypes(f);
+    const types = ParamTypes(noop(u8));
     try testing.expect(types.len == 1);
     try testing.expect(types[0] == u8);
 }
@@ -99,13 +96,9 @@ pub fn literal(
     }.match;
 }
 
-fn debug(str: []const u8) void {
-    print("matched: {s}\n", .{str});
-}
-
 test "literal" {
     var src = StreamSource{ .const_buffer = fixedBufferStream("hello") };
-    try literal(debug, "hello")(testing.allocator, &src);
+    try literal(noop([]const u8), "hello")(testing.allocator, &src);
 }
 
 // pub fn eos(comptime visitor: anytype) Combinator(visitor) {
