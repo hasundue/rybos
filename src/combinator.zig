@@ -1,129 +1,95 @@
 const std = @import("std");
+const util = @import("util.zig");
 
-const mem = std.mem;
 const Allocator = std.mem.Allocator;
 
 const File = std.fs.File;
 const StreamSource = std.io.StreamSource;
-const fixedBufferStream = std.io.fixedBufferStream;
 
-const print = std.debug.print;
+const ss = util.streamSource;
 const testing = std.testing;
-
 const expect = testing.expect;
 const expectError = testing.expectError;
 
 const Error = error{ParseFailed} || Allocator.Error || File.ReadError || File.SeekError;
 
-fn noop(comptime T: type) fn (T) void {
-    return struct {
-        fn f(_: T) void {}
-    }.f;
-}
+pub const Context = struct {
+    const Self = @This();
 
-fn _noop() fn (anytype) void {
-    return struct {
-        fn f(_: anytype) void {}
-    }.f;
-}
+    str: []const u8,
+    pos: struct { start: usize, end: usize },
 
-fn streamSource(str: []const u8) StreamSource {
-    return StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
-}
-
-fn ensureFn(comptime visitor: anytype) std.builtin.Type.Fn {
-    switch (@typeInfo(@TypeOf(visitor))) {
-        .Fn => |f| return f,
-        else => @compileError("visitor must be a function"),
+    pub fn init(str: []const u8, start: usize, end: usize) Self {
+        return Self{
+            .str = str,
+            .pos = .{ .start = start, .end = end },
+        };
     }
-}
+};
 
-test "ensureFn" {
-    try expect(@TypeOf(ensureFn(noop(u8))) == std.builtin.Type.Fn);
-}
-
-fn ReturnType(comptime visitor: anytype) type {
-    return ensureFn(visitor).return_type.?;
-}
-
-test "ReturnType" {
-    try expect(ReturnType(noop(u8)) == void);
-}
-
-fn ParamTypes(comptime visitor: anytype) []const type {
-    const params = ensureFn(visitor).params;
-    var types: [params.len]type = undefined;
-
-    for (params, 0..) |param, i| {
-        types[i] = param.type orelse @TypeOf(null);
-    }
-    const cast: []const type = &types;
-    return cast;
-}
-
-test "ParamType" {
-    const types = ParamTypes(noop(u8));
-    try expect(types.len == 1);
-    try expect(types[0] == u8);
-}
+/// a combinator doing nothing
+pub fn noop(_: Context) !void {}
 
 fn visit(
     comptime visitor: anytype,
-    comptime context: anytype,
-) ReturnType(visitor) {
-    // validate the signature of the visitor
-    _ = ensureFn(visitor);
-
-    if (ReturnType(visitor) == std.builtin.Type.ErrorUnion) {
+    context: Context,
+) util.ReturnType(visitor) {
+    const types = util.ParamTypes(visitor);
+    if (types.len != 1 or types[0] != Context) {
+        @compileError("visitor must take a single parameter of type Context");
+    }
+    if (util.ReturnType(visitor) == std.builtin.Type.ErrorUnion) {
         return try visitor(context);
     } else {
         return visitor(context);
     }
 }
 
-pub fn Combinator(comptime visitor: anytype) type {
-    return fn (Allocator, *StreamSource) Error!ReturnType(visitor);
+pub fn Combinator(comptime ReturnType: type) type {
+    return fn (Allocator, *StreamSource) Error!ReturnType;
+}
+
+pub fn Visitor(comptime ReturnType: type) type {
+    return fn (Context) Error!ReturnType;
 }
 
 pub fn literal(
-    comptime visitor: anytype,
+    comptime ReturnType: type,
+    comptime visitor: Visitor(ReturnType),
     comptime str: []const u8,
-) Combinator(visitor) {
-    const types = ParamTypes(visitor);
-    if (types.len != 1 or types[0] != []const u8) {
-        @compileError("visitor must take a single parameter of type []const u8");
-    }
+) Combinator(ReturnType) {
     return struct {
-        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
+        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType {
             const buf = try alc.alloc(u8, str.len);
             defer alc.free(buf);
+            const start = try src.getPos();
             const count = try src.read(buf);
-            if (count < str.len or !mem.eql(u8, buf, str)) {
+            if (count < str.len or !std.mem.eql(u8, buf, str)) {
                 try src.seekBy(-@intCast(i64, count));
                 return Error.ParseFailed;
             }
-            return visit(visitor, str);
+            const ctx = Context.init(str, start, start + count);
+            return visit(visitor, ctx);
         }
     }.match;
 }
 
 test "literal" {
-    const cmb = literal(noop([]const u8), "hello");
+    const cmb = literal(void, noop, "hello");
 
-    var src = streamSource("hello");
+    var src = util.streamSource("hello");
     try cmb(testing.allocator, &src);
 
-    src = streamSource("");
+    src = util.streamSource("");
     try expectError(Error.ParseFailed, cmb(testing.allocator, &src));
 }
 
-pub fn eos(comptime visitor: anytype) Combinator(visitor) {
-    const types = ParamTypes(visitor);
-    if (types.len != 1 or types[0] != @TypeOf(null)) {
-        @compileError("visitor must take a single parameter of type null");
-    }
+pub fn eos(
+    comptime ReturnType: type,
+    comptime visitor: Visitor(ReturnType),
+) Combinator(ReturnType) {
     return struct {
-        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType(visitor) {
+        fn match(alc: Allocator, src: *StreamSource) Error!ReturnType {
             const buf = try alc.alloc(u8, 1);
             defer alc.free(buf);
             const count = try src.read(buf);
@@ -131,18 +97,19 @@ pub fn eos(comptime visitor: anytype) Combinator(visitor) {
                 try src.seekBy(-@intCast(i64, count));
                 return Error.ParseFailed;
             }
-            return visit(visitor, null);
+            const pos = try src.getPos() + 1;
+            return visit(visitor, Context.init("EOS", pos, pos));
         }
     }.match;
 }
 
 test "eos" {
-    const cmb = eos(_noop());
+    const cmb = eos(void, noop);
 
-    var src = streamSource("");
+    var src = util.streamSource("");
     try cmb(testing.allocator, &src);
 
-    src = streamSource("hello");
+    src = util.streamSource("hello");
     try expectError(Error.ParseFailed, cmb(testing.allocator, &src));
 }
 
