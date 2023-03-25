@@ -6,12 +6,15 @@ const Allocator = std.mem.Allocator;
 const File = std.fs.File;
 const StreamSource = std.io.StreamSource;
 
-const ss = util.streamSource;
 const testing = std.testing;
 const expect = testing.expect;
 const expectError = testing.expectError;
 
-const Error = error{ParseFailed} || Allocator.Error || File.ReadError || File.SeekError;
+pub const Error = error{ParseFailed} || Allocator.Error || File.ReadError || File.SeekError;
+
+pub fn Combinator(comptime ReturnType: type) type {
+    return fn (Allocator, *StreamSource) Error!ReturnType;
+}
 
 pub const Context = struct {
     const Self = @This();
@@ -27,8 +30,11 @@ pub const Context = struct {
     }
 };
 
-/// a combinator doing nothing
-pub fn noop(_: Context) !void {}
+pub fn Visitor(comptime ReturnType: type) type {
+    return fn (Context) Error!ReturnType;
+}
+
+fn noop(_: Context) !void {}
 
 fn visit(
     comptime visitor: anytype,
@@ -45,17 +51,9 @@ fn visit(
     }
 }
 
-pub fn Combinator(comptime ReturnType: type) type {
-    return fn (Allocator, *StreamSource) Error!ReturnType;
-}
-
-pub fn Visitor(comptime ReturnType: type) type {
-    return fn (Context) Error!ReturnType;
-}
-
 pub fn literal(
     comptime ReturnType: type,
-    comptime visitor: Visitor(ReturnType),
+    comptime visitor: fn (Context) Error!ReturnType,
     comptime str: []const u8,
 ) Combinator(ReturnType) {
     return struct {
@@ -86,7 +84,7 @@ test "literal" {
 
 pub fn eos(
     comptime ReturnType: type,
-    comptime visitor: Visitor(ReturnType),
+    comptime visitor: fn (Context) Error!ReturnType,
 ) Combinator(ReturnType) {
     return struct {
         fn match(alc: Allocator, src: *StreamSource) Error!ReturnType {
@@ -98,7 +96,7 @@ pub fn eos(
                 return Error.ParseFailed;
             }
             const pos = try src.getPos() + 1;
-            return visit(visitor, Context.init("EOS", pos, pos));
+            return visit(visitor, Context.init("", pos, pos));
         }
     }.match;
 }
@@ -113,10 +111,11 @@ test "eos" {
     try expectError(Error.ParseFailed, cmb(testing.allocator, &src));
 }
 
-// pub fn choice(
+// pub fn one(
 //     comptime visitor: anytype,
 //     comptime cs: []Combinator,
 // ) Combinator(visitor) {
+//     _ = cs;
 //     return struct {
 //         fn match(rest: []u8) Error!ReturnType(visitor) {
 //             var res: [cs.len]ReturnType(visitor) = undefined;

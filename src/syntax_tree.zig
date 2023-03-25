@@ -1,56 +1,42 @@
 const std = @import("std");
 const cmb = @import("combinator.zig");
+const utl = @import("util.zig");
+
+const testing = std.testing;
 
 const Allocator = std.mem.Allocator;
 const Parser = cmb.Combinator;
-const Visitor = fn ([]const u8) Node;
-
-const eos = cmb.eos();
-const @"const" = cmb.literal("const");
-
-const parser = @"const"; // TODO
-
-const Position = struct {
-    start: usize,
-    end: usize,
-};
 
 const Node = struct {
     const Self = @This();
 
-    tree: *Tree,
+    rule: []const u8,
+    str: []const u8,
+    pos: struct { start: usize, end: usize },
 
-    token: []const u8,
-    syntax: comptime_int,
-    position: Position,
+    // child: []const *Self,
 
-    child: []const *Self,
-
-    pub fn init(t: *Tree, s: []const u8, p: Position) Self {
-        _ = t;
-        _ = s;
-        _ = p;
+    pub fn builder(comptime rule: []const u8) cmb.Visitor(Node) {
+        return struct {
+            fn visitor(ctx: cmb.Context) cmb.Error!Node {
+                return .{
+                    .rule = rule,
+                    .str = ctx.str,
+                    .pos = .{ .start = ctx.pos.start, .end = ctx.pos.end },
+                };
+            }
+        }.visitor;
     }
 };
-
-const Tree = struct {
-    const Self = @This();
-
-    allocator: *Allocator,
-    parser: Parser,
-    root: *Node,
-
-    pub fn init(a: Allocator, p: Parser, s: []const u8) Self {
-        _ = s;
-        _ = p;
-        _ = a;
-    }
-};
-
-const testing = std.testing;
 
 test "init" {
-    const parser = cmb.eos(
-    const tree = SyntaxTree.init(testing.allocator, parser, "");
-    try testing.expect(tree.root.token == "");
+    const parser = cmb.eos(Node, Node.builder("EOS"));
+    var src = utl.streamSource("");
+
+    const node = try parser(testing.allocator, &src);
+
+    try testing.expectEqualStrings("EOS", node.rule);
+    try testing.expectEqualStrings("", node.str);
+    try testing.expect(node.pos.start == 1);
+    try testing.expect(node.pos.end == 1);
 }
