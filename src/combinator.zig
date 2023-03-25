@@ -25,6 +25,15 @@ fn ReturnType(comptime visitor: anytype) type {
     };
 }
 
+fn visit(visitor: anytype, comptime str: []const u8) ReturnType(visitor) {
+    checkParamType(visitor);
+    if (ReturnType(visitor) == std.builtin.Type.ErrorUnion) {
+        return try visitor(str);
+    } else {
+        return visitor(str);
+    }
+}
+
 pub fn literal(
     comptime visitor: anytype,
     comptime str: []const u8,
@@ -35,7 +44,7 @@ pub fn literal(
             if (!std.mem.startsWith(u8, src, str)) {
                 return Error.ParseFailed;
             }
-            return visitor(str);
+            return visit(visitor, str);
         }
     }.match;
 }
@@ -45,5 +54,5 @@ fn debug(res: []const u8) void {
 }
 
 test "literal" {
-    _ = try literal(debug, "hello")("hello");
+    try literal(debug, "hello")("hello");
 }
