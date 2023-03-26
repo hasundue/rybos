@@ -17,32 +17,29 @@ pub fn Combinator(comptime visitor: anytype) type {
     return fn (Allocator, *StreamSource) Error!ReturnType(visitor);
 }
 
-pub const Context = struct {
-    const Self = @This();
-
+pub const Result = struct {
     str: []const u8,
-    pos: struct { start: usize, end: usize },
 
-    pub fn init(str: []const u8, start: usize, end: usize) Self {
-        return Self{
-            .str = str,
-            .pos = .{ .start = start, .end = end },
-        };
+    start: usize,
+    end: usize,
+
+    pub fn init(str: []const u8, start: usize, end: usize) Result {
+        return .{ .str = str, .start = start, .end = end };
     }
 };
 
 pub fn Visitor(comptime T: type) type {
-    return fn (Context) T;
+    return fn (Result) T;
 }
 
-fn noop(_: Context) void {}
+fn noop(_: Result) void {}
 
 fn visit(
     comptime visitor: anytype,
-    context: Context,
+    context: Result,
 ) ReturnType(visitor) {
     const types = util.ParamTypes(visitor);
-    if (types.len != 1 or types[0] != Context) {
+    if (types.len != 1 or types[0] != Result) {
         @compileError("visitor must take a single parameter of type Context");
     }
     if (util.ReturnType(visitor) == std.builtin.Type.ErrorUnion) {
@@ -66,8 +63,7 @@ pub fn literal(
                 try src.seekBy(-@intCast(i64, count));
                 return Error.ParseFailed;
             }
-            const ctx = Context.init(str, start, start + count);
-            return visit(visitor, ctx);
+            return visit(visitor, Result.init(str, start, start + count));
         }
     }.match;
 }
@@ -92,8 +88,8 @@ pub fn eos(comptime visitor: anytype) Combinator(visitor) {
                 try src.seekBy(-@intCast(i64, count));
                 return Error.ParseFailed;
             }
-            const pos = try src.getPos() + 1;
-            return visit(visitor, Context.init("", pos, pos));
+            const pos = try src.getPos();
+            return visit(visitor, Result.init("", pos, pos));
         }
     }.match;
 }
@@ -107,20 +103,3 @@ test "eos" {
     src = util.streamSource("hello");
     try expectError(Error.ParseFailed, cmb(testing.allocator, &src));
 }
-
-// pub fn one(
-//     comptime visitor: anytype,
-//     comptime cs: []Combinator,
-// ) Combinator(visitor) {
-//     _ = cs;
-//     return struct {
-//         fn match(rest: []u8) Error!ReturnType(visitor) {
-//             var res: [cs.len]ReturnType(visitor) = undefined;
-//             for (cs) |combinator| {
-//                 const res = try combinator(rest);
-//                 return res;
-//             }
-//             return Error.ParseFailed;
-//         }
-//     }.match;
-// }

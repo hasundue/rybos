@@ -1,42 +1,41 @@
 const std = @import("std");
-const cmb = @import("combinator.zig");
 const utl = @import("util.zig");
+const cmb = @import("combinator.zig");
 
-const testing = std.testing;
-
-const Allocator = std.mem.Allocator;
-const Parser = cmb.Combinator;
+const t = std.testing;
 
 const Node = struct {
-    const Self = @This();
-
     rule: []const u8,
-    str: []const u8,
-    pos: struct { start: usize, end: usize },
+    token: cmb.Result,
 
     // child: []const *Self,
 
     pub fn builder(comptime rule: []const u8) cmb.Visitor(Node) {
         return struct {
-            fn visitor(ctx: cmb.Context) Node {
-                return .{
-                    .rule = rule,
-                    .str = ctx.str,
-                    .pos = .{ .start = ctx.pos.start, .end = ctx.pos.end },
-                };
+            fn visitor(res: cmb.Result) Node {
+                return .{ .rule = rule, .token = res };
             }
         }.visitor;
     }
 };
 
 test "init" {
-    const parser = cmb.eos(Node.builder("EOS"));
+    const parse = cmb.eos(Node.builder("EOS"));
     var src = utl.streamSource("");
 
-    const node = try parser(testing.allocator, &src);
+    var node = try parse(t.allocator, &src);
+    try expectNode(.{
+        .rule = "EOS",
+        .token = .{ .str = "", .start = 0, .end = 0 },
+    }, node);
+}
 
-    try testing.expectEqualStrings("EOS", node.rule);
-    try testing.expectEqualStrings("", node.str);
-    try testing.expect(node.pos.start == 1);
-    try testing.expect(node.pos.end == 1);
+fn expectNode(
+    expected: Node,
+    actual: Node,
+) !void {
+    try t.expectEqualStrings(expected.rule, actual.rule);
+    try t.expectEqualStrings(expected.token.str, actual.token.str);
+    try t.expect(expected.token.start == actual.token.start);
+    try t.expect(expected.token.end == actual.token.end);
 }
