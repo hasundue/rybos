@@ -1,0 +1,6 @@
+[submodule "src/mecha"]
+	path = src/mecha
+	url = https://github.com/hasundue/mecha
+[submodule "julia"]
+	path = julia
+	url = git@github.com:JuliaLang/julia.git
